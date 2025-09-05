@@ -23,16 +23,15 @@ const brandRoutes = require('./routes/brands');
 const bannerRoutes = require('./routes/banners');
 const subCategoryRoutes = require('./routes/subCategoryRoutes');
 const bulkImportRoutes = require('./routes/bulkImport');
-const orderRoutes = require('./routes/orders'); // Add this line
-const analyticsRoutes = require('./routes/analytics'); // Add this line
-const supportRoutes = require('./routes/support'); // Add this line
-const paymentsRoutes = require('./routes/payments'); // Add this line
-const notificationsRoutes = require('./routes/notifications'); // Add this line
-const storesRoutes = require('./routes/stores'); // Add this line
-const usersRoutes = require('./routes/users'); // Add this line
-const walletsRoutes = require('./routes/wallets'); // Add this line
-const categoryHierarchyRoutes = require('./routes/categoryHierarchy'); // Add this line
-
+const orderRoutes = require('./routes/orders');
+const analyticsRoutes = require('./routes/analytics');
+const supportRoutes = require('./routes/support');
+const paymentsRoutes = require('./routes/payments');
+const notificationsRoutes = require('./routes/notifications');
+const storesRoutes = require('./routes/stores');
+const usersRoutes = require('./routes/users');
+const walletsRoutes = require('./routes/wallets');
+const categoryHierarchyRoutes = require('./routes/categoryHierarchy');
 
 // Use Routes
 app.use('/api/admin', adminRoutes);
@@ -43,15 +42,15 @@ app.use('/api/brands', brandRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/sub-categories', subCategoryRoutes);
 app.use('/api/bulk-import', bulkImportRoutes);
-app.use('/api/orders', orderRoutes); // Add this line
-app.use('/api/analytics', analyticsRoutes); // Add this line
-app.use('/api/support', supportRoutes); // Add this line
-app.use('/api/payments', paymentsRoutes); // Add this line
-app.use('/api/notifications', notificationsRoutes); // Add this line
-app.use('/api/stores', storesRoutes); // Add this line
-app.use('/api/users', usersRoutes); // Add this line
-app.use('/api/wallets', walletsRoutes); // Add this line
-app.use('/api/category-hierarchy', categoryHierarchyRoutes); // Add this line
+app.use('/api/orders', orderRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/support', supportRoutes);
+app.use('/api/payments', paymentsRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/stores', storesRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/wallets', walletsRoutes);
+app.use('/api/category-hierarchy', categoryHierarchyRoutes);
 
 // Test Database Connection
 async function testDbConnection() {

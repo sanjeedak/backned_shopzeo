@@ -1,25 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/userAuth');
+// Sahi middleware file se 'authenticate' aur 'authorize' import karein
+const { authenticate, authorize } = require('../middleware/auth');
 
-// Middleware to check if user is admin
-const requireAdmin = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: 'Authentication required'
-    });
-  }
-  
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied. Admin role required.'
-    });
-  }
-  
-  next();
-};
+// Middleware to check if user is admin, using the 'authorize' function from auth.js
+const requireAdmin = authorize('admin');
 
 // Public admin login page (no auth required)
 router.get('/login', (req, res) => {
@@ -35,7 +20,10 @@ router.get('/login', (req, res) => {
 });
 
 // Protected admin routes (require admin authentication)
-router.get('/#', requireAdmin, (req, res) => {
+router.use(authenticate); // Apply authentication to all routes below
+router.use(requireAdmin); // Apply admin-only authorization to all routes below
+
+router.get('/dashboard', (req, res) => {
   res.json({
     success: true,
     message: 'Admin Dashboard',
@@ -53,7 +41,7 @@ router.get('/#', requireAdmin, (req, res) => {
   });
 });
 
-router.get('/profile', requireAdmin, (req, res) => {
+router.get('/profile', (req, res) => {
   res.json({
     success: true,
     message: 'Admin Profile',
@@ -68,7 +56,7 @@ router.get('/profile', requireAdmin, (req, res) => {
   });
 });
 
-router.get('/stats', requireAdmin, (req, res) => {
+router.get('/stats', (req, res) => {
   res.json({
     success: true,
     message: 'Admin Statistics',
