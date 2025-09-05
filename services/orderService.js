@@ -1,134 +1,82 @@
-const { Op, Transaction } = require('sequelize');
-const { 
-  Order, 
-  OrderItem, 
-  Product, 
-  Store, 
-  User, 
-  Address, 
-  Wallet, 
-  Transaction: WalletTransaction,
-  Stock
-} = require('../models'); // Ensure models are imported correctly via index.js or associations.js
-const { AppError } = require('../middleware/errorHandler');
+const { Order, OrderItem, Product, Stock, sequelize } = require('../models');
 
-class OrderService {
-  // Create new order (This is an improved version of your existing function)
-  async createOrder(orderData, userId, transaction = null) {
-    const {
-      items,
-      shippingAddress, // Now receiving the full address object
-      billingAddress,
-      paymentMethod,
-      notes,
-      couponCode
-    } = orderData;
+// Function to create a new order
+exports.createOrder = async (userId, orderData) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const { order_items, ...restOfOrderData } = orderData;
+        
+        const newOrder = await Order.create({
+            ...restOfOrderData,
+            user_id: userId,
+        }, { transaction });
 
-    if (!items || items.length === 0) {
-      throw new AppError('Order must contain at least one item', 400);
+        if (!order_items || !Array.isArray(order_items) || order_items.length === 0) {
+            throw new Error('Order must contain at least one item');
+        }
+
+        const itemsToCreate = await Promise.all(order_items.map(async item => {
+            const product = await Product.findByPk(item.product_id, { transaction });
+            if (!product) {
+                throw new Error(`Product with ID ${item.product_id} not found`);
+            }
+            
+            // Check stock availability
+            const stock = await Stock.findOne({
+                where: {
+                    product_id: item.product_id,
+                    variant_id: item.variant_id || null // Handle products without variants
+                },
+                transaction
+            });
+
+            if (!stock || stock.quantity < item.quantity) {
+                throw new Error(`Not enough stock for product ID ${item.product_id}`);
+            }
+
+            // Decrease stock
+            await stock.update({
+                quantity: stock.quantity - item.quantity
+            }, { transaction });
+
+            return {
+                order_id: newOrder.id,
+                product_id: item.product_id,
+                variant_id: item.variant_id,
+                quantity: item.quantity,
+                price: product.price,
+                total_price: product.price * item.quantity
+            };
+        }));
+        
+        await OrderItem.bulkCreate(itemsToCreate, { transaction });
+
+        await transaction.commit();
+
+        return {
+            success: true,
+            message: 'Order created successfully',
+            data: newOrder
+        };
+
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
     }
-    if (!shippingAddress) {
-        throw new AppError('Shipping address is required', 400);
-    }
+};
 
-    // Process items and calculate totals
-    let subtotal = 0;
-    const orderItemsData = [];
-
-    for (const item of items) {
-      const product = await Product.findByPk(item.productId, {
-        include: [{ model: Store, as: 'store' }]
-      });
-
-      if (!product || !product.isActive || !product.isApproved) {
-        throw new AppError(`Product ${item.productId} is not available`, 400);
-      }
-      
-      const currentStock = product.stock; // Assuming stock is a direct property of product for simplicity
-      if (currentStock < item.quantity) {
-        throw new AppError(`Insufficient stock for product ${product.name}`, 400);
-      }
-      
-      const itemSubtotal = product.price * item.quantity;
-      subtotal += itemSubtotal;
-      
-      // Prepare data for OrderItem creation
-      orderItemsData.push({
-          productId: product.id,
-          storeId: product.storeId,
-          productName: product.name,
-          productSku: product.sku,
-          quantity: item.quantity,
-          unitPrice: product.price,
-          totalPrice: itemSubtotal,
-          finalPrice: itemSubtotal // Assuming no tax/discount per item for now
-      });
-
-      // Decrement stock
-      await product.decrement('stock', { by: item.quantity, transaction });
-    }
-
-    // TODO: Implement logic for tax, shipping, and discount calculation
-    const taxAmount = subtotal * 0.05; // Example: 5% tax
-    const shippingAmount = 80.00; // Example: flat shipping
-    const discountAmount = 0; // TODO: implement coupon logic
-    const totalAmount = subtotal + taxAmount + shippingAmount - discountAmount;
-
-    // Create order
-    const order = await Order.create({
-      customerId: userId,
-      shippingAddress: shippingAddress, // Storing the full JSON object
-      billingAddress: billingAddress || shippingAddress,
-      paymentMethod,
-      subtotal,
-      taxAmount,
-      shippingAmount,
-      discountAmount,
-      totalAmount,
-      status: 'pending', // Order is pending until payment is confirmed
-      paymentStatus: 'pending',
-      notes,
-    }, { transaction });
-    
-    // Create order items
-    for (const itemData of orderItemsData) {
-        itemData.orderId = order.id; // Assign the new orderId
-    }
-    await OrderItem.bulkCreate(orderItemsData, { transaction });
-
-    return order;
-  }
-  
-  // NEW FUNCTION: Confirm an order after successful payment
-  async confirmOrder(orderId, transaction = null) {
-    const order = await Order.findByPk(orderId);
-    if (!order) {
-        throw new AppError('Order not found', 404);
-    }
-    await order.update({
-        status: 'confirmed',
-        paymentStatus: 'paid'
-    }, { transaction });
-    // Here you can trigger notifications, etc.
-    return order;
-  }
-
-  // NEW FUNCTION: Get all orders for a specific customer
-  async getOrdersByCustomer(customerId) {
-      return Order.findAll({
-          where: { customerId },
-          include: [{ model: OrderItem, as: 'items', include: [{model: Product, as: 'product'}] }],
-          order: [['createdAt', 'DESC']]
-      });
-  }
-
-  // NEW FUNCTION: Get a single order by ID for a specific customer
-  async getOrderById(orderId, customerId) {
-      return Order.findOne({
-          where: { id: orderId, customerId },
-          include: [{ model: OrderItem, as: 'items', include: [{model: Product, as: 'product'}] }]
-      });
-  }
-}
-
-module.exports = new OrderService();
+// Function to get orders for a user
+exports.getOrders = async (userId) => {
+    return Order.findAll({
+        where: { user_id: userId },
+        include: [{
+            model: OrderItem,
+            as: 'orderItems',
+            include: [{
+                model: Product,
+                as: 'product',
+            }]
+        }],
+        order: [['created_at', 'DESC']]
+    });
+};

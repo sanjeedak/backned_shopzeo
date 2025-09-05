@@ -1,66 +1,75 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { sequelize } = require('./models');
-const errorHandler = require('./middleware/errorHandler');
+const app = express();
+require('dotenv').config();
 
-// Route imports
-const authRoutes = require('./routes/auth');
+const { sequelize } = require('./config/sequelize');
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from the 'uploads' directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Import Routes
+const adminRoutes = require('./routes/admin');
+const userAuthRoutes = require('./routes/userAuth');
 const categoryRoutes = require('./routes/categories');
-const subCategoryRoutes = require('./routes/subCategoryRoutes');
 const productRoutes = require('./routes/products');
 const brandRoutes = require('./routes/brands');
 const bannerRoutes = require('./routes/banners');
-const storeRoutes = require('./routes/stores');
-const categoryHierarchyRoutes = require('./routes/categoryHierarchy');
+const subCategoryRoutes = require('./routes/subCategoryRoutes');
 const bulkImportRoutes = require('./routes/bulkImport');
-const userAuthRoutes = require('./routes/userAuth');
-const orderRoutes = require('./routes/orders'); // <-- ADD THIS LINE
+const orderRoutes = require('./routes/orders'); // Add this line
+const analyticsRoutes = require('./routes/analytics'); // Add this line
+const supportRoutes = require('./routes/support'); // Add this line
+const paymentsRoutes = require('./routes/payments'); // Add this line
+const notificationsRoutes = require('./routes/notifications'); // Add this line
+const storesRoutes = require('./routes/stores'); // Add this line
+const usersRoutes = require('./routes/users'); // Add this line
+const walletsRoutes = require('./routes/wallets'); // Add this line
+const categoryHierarchyRoutes = require('./routes/categoryHierarchy'); // Add this line
 
-const app = express();
 
-// Middleware
-app.use(express.json());
-app.use(cors());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Simple route for testing
-app.get('/', (req, res) => {
-  res.send('Shopzeo API is running...');
-});
-
-// API Routes
-app.use('/api/auth', authRoutes);
+// Use Routes
+app.use('/api/admin', adminRoutes);
+app.use('/api/auth', userAuthRoutes);
 app.use('/api/categories', categoryRoutes);
-app.use('/api/subcategories', subCategoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/brands', brandRoutes);
 app.use('/api/banners', bannerRoutes);
-app.use('/api/stores', storeRoutes);
-app.use('/api/category-hierarchy', categoryHierarchyRoutes);
+app.use('/api/sub-categories', subCategoryRoutes);
 app.use('/api/bulk-import', bulkImportRoutes);
-app.use('/api/user', userAuthRoutes);
-app.use('/api/orders', orderRoutes); // <-- AND ADD THIS LINE
+app.use('/api/orders', orderRoutes); // Add this line
+app.use('/api/analytics', analyticsRoutes); // Add this line
+app.use('/api/support', supportRoutes); // Add this line
+app.use('/api/payments', paymentsRoutes); // Add this line
+app.use('/api/notifications', notificationsRoutes); // Add this line
+app.use('/api/stores', storesRoutes); // Add this line
+app.use('/api/users', usersRoutes); // Add this line
+app.use('/api/wallets', walletsRoutes); // Add this line
+app.use('/api/category-hierarchy', categoryHierarchyRoutes); // Add this line
 
-// 404 Not Found Middleware
-app.use((req, res, next) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
+// Test Database Connection
+async function testDbConnection() {
+  try {
+    await sequelize.authenticate();
+    console.log('Database connection has been established successfully.');
+  } catch (error) {
+    console.error('Unable to connect to the database:', error);
+  }
+}
+testDbConnection();
+
+// Simple API response for the root URL
+app.get('/', (req, res) => {
+  res.send('Welcome to the ShopZeo Backend API!');
 });
 
-// Centralized Error Handler
-app.use(errorHandler);
-
-const PORT = process.env.PORT || 5001;
-
-// Database connection and server start
-sequelize.authenticate()
-  .then(() => {
-    console.log('Database connected successfully.');
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
-  })
-  .catch(err => {
-    console.error('Unable to connect to the database:', err);
-  });
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
